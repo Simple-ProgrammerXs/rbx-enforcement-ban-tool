@@ -23,7 +23,7 @@ This project is not affiliated with, endorsed by, or sponsored by Roblox Corpora
 - IMAP response monitoring for Gmail and Outlook inboxes
 - SQLite appeal history using Bun's `bun:sqlite`
 - AI-assisted appeal draft generation through [Vercel AI Gateway](https://vercel.com/ai-gateway)
-- Optional proxy and Discord webhook support
+- Discord webhook support
 - Config via JSON files or environment variables
 - TypeScript, ESLint, Prettier, Bun tests, and CI
 
