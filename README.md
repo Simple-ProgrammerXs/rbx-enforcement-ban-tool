@@ -3,6 +3,7 @@
 [![CI](https://github.com/RoAppeal/rbx-enforcement-ban-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/RoAppeal/rbx-enforcement-ban-tool/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Bun](https://img.shields.io/badge/bun-%3E%3D1.3-black.svg)](https://bun.sh/)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/K-GyWz?referralCode=iRdruT&utm_medium=integration&utm_source=template&utm_campaign=generic)
 
 Enforcement Ban Tool by RoAppeal is a self-hosted Bun and TypeScript app for managing Roblox account appeal workflows from a local dashboard. It monitors appeal response emails, tracks appeal state in SQLite, generates appeal drafts, submits appeal requests, and can send Discord notifications.
 
@@ -61,10 +62,10 @@ bun run dev
 The dashboard runs at:
 
 ```text
-http://127.0.0.1:3000
+http://127.0.0.1:3000/dashboard
 ```
 
-If port `3000` is already in use, run `npm run dev -- --port 3001` and open the `Local` URL Vite prints with `/dashboard`.
+If port `3000` is already in use, run `npm run dev -- --port 3001` and open the dashboard URL printed in the terminal.
 
 Password protection is off by default. Set `dashboard.require_password` to `true` and use `dashboard.password` or `DASHBOARD_PASSWORD` to require login.
 

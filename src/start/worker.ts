@@ -103,9 +103,10 @@ function shouldRunTestWorker(): boolean {
 }
 
 function dashboardUrl(dashboard?: DashboardConfig): string {
-  const rawHost = dashboard?.host ?? "127.0.0.1";
+  const rawHost = process.env.DASHBOARD_HOST ?? dashboard?.host ?? "127.0.0.1";
   const host = rawHost === "0.0.0.0" || rawHost === "::" ? "127.0.0.1" : rawHost;
-  const port = dashboard?.port ?? 3000;
+  const envPort = Number.parseInt(process.env.DASHBOARD_PORT ?? process.env.PORT ?? "", 10);
+  const port = Number.isInteger(envPort) ? envPort : (dashboard?.port ?? 3000);
 
   return `http://${host}:${port}/dashboard`;
 }
@@ -113,10 +114,7 @@ function dashboardUrl(dashboard?: DashboardConfig): string {
 function logDashboardUrl(dashboard?: DashboardConfig): void {
   if (process.env.NODE_ENV === "production") {
     Logger.info(`Open ${dashboardUrl(dashboard)}`);
-    return;
   }
-
-  Logger.info("Open the Vite Local URL above with /dashboard");
 }
 
 async function isRobloxAccountBanned(

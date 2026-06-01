@@ -7,14 +7,18 @@ import tailwindcss from "@tailwindcss/vite";
 const devHost = process.env.DASHBOARD_HOST ?? "127.0.0.1";
 const devPort = Number.parseInt(process.env.DASHBOARD_PORT ?? process.env.PORT ?? "3000", 10);
 
-function exposeResolvedDevServerPort(): Plugin {
+function printResolvedDevDashboardUrl(): Plugin {
   return {
-    name: "expose-resolved-dev-server-port",
+    name: "print-resolved-dev-dashboard-url",
     configureServer(server) {
       server.httpServer?.once("listening", () => {
         const address = server.httpServer?.address();
         if (address && typeof address === "object") {
           process.env.DASHBOARD_PORT = String(address.port);
+          const displayHost = devHost === "0.0.0.0" || devHost === "::" ? "127.0.0.1" : devHost;
+          process.stdout.write(
+            `\n  Dashboard: http://${displayHost}:${address.port}/dashboard\n\n`,
+          );
         }
       });
     },
@@ -35,7 +39,7 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   plugins: [
-    exposeResolvedDevServerPort(),
+    printResolvedDevDashboardUrl(),
     tailwindcss(),
     tanstackStart(),
     nitro({ preset: "bun" }),
