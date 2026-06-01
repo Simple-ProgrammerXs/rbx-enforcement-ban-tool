@@ -30,13 +30,8 @@ export function Nav({ startedAt, now }: { startedAt?: number; now: number }) {
             />
           </span>
           <span className="min-w-0 leading-tight">
-            <strong className="flex flex-wrap items-center gap-2 text-[17px] text-white">
-              RoAppeal
-              <span className="rounded border border-red-400/30 bg-red-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.08em] text-red-300">
-                OSS
-              </span>
-            </strong>
-            <span className="block truncate text-xs text-[#7e7499]">Enforcement Ban Tool</span>
+            <strong className="block truncate text-[17px] text-white">Enforcement Ban Tool</strong>
+            <span className="block truncate text-xs text-[#7e7499]">by RoAppeal</span>
           </span>
         </a>
         <div className="flex flex-wrap items-center gap-3 text-sm">

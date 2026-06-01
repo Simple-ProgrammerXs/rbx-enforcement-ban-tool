@@ -65,6 +65,34 @@ describe("database", () => {
     expect(database.getAccountStatus("ExampleUser")).toBe("rejected");
   });
 
+  test("does not apply the same support ticket to multiple accounts", async () => {
+    const database = await loadDatabaseModule();
+    const submittedAt = 1_700_000_000_000;
+
+    database.addSubmission("FirstUser", "shared@example.com", submittedAt);
+    database.addSubmission("SecondUser", "shared@example.com", submittedAt + 60_000);
+
+    expect(
+      database.recordHumanTicket(
+        "FirstUser",
+        "message-1",
+        "Roblox Support Ticket 171470673",
+        submittedAt + 120_000,
+      ),
+    ).toBe(true);
+    expect(
+      database.recordHumanTicket(
+        "SecondUser",
+        "message-2",
+        "Re: Roblox Support Ticket 171470673",
+        submittedAt + 180_000,
+      ),
+    ).toBe(false);
+
+    expect(database.getAccountStatus("FirstUser")).toBe("escalated");
+    expect(database.getAccountStatus("SecondUser")).toBe("submitted");
+  });
+
   test("finds the latest submission for a shared email inbox", async () => {
     const database = await loadDatabaseModule();
 

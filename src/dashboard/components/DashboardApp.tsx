@@ -28,6 +28,7 @@ export function DashboardApp() {
   const [entryOpen, setEntryOpenState] = useState<Record<string, boolean>>({});
   const [pageOf, setPageOf] = useState<Record<string, number>>({});
   const counts = state?.counts;
+  const testMode = state?.testMode === true;
   const accounts = useMemo(() => state?.accounts ?? [], [state?.accounts]);
   const configurationError = state?.configurationError;
 
@@ -61,16 +62,16 @@ export function DashboardApp() {
       let changed = false;
       const next = { ...current };
 
-      for (const account of accounts) {
+      accounts.forEach((account, index) => {
         if (next[account.username] === undefined) {
-          next[account.username] = true;
+          next[account.username] = testMode ? index !== 0 : true;
           changed = true;
         }
-      }
+      });
 
       return changed ? next : current;
     });
-  }, [accounts]);
+  }, [accounts, testMode]);
 
   useEffect(() => {
     setPageOf((current) => {

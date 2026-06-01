@@ -315,18 +315,23 @@ export function loadTestConfig(): AppConfig {
   return {
     accounts: [
       {
-        username: "TestAccountApproved",
-        email: "approved@gmail.com",
+        username: "TestAccount1",
+        email: "appeals.primary@gmail.com",
         app_password: "test-password",
       },
       {
-        username: "TestAccountPending",
-        email: "pending@outlook.com",
+        username: "TestAccount2",
+        email: "appeals.primary@gmail.com",
         app_password: "test-password",
       },
       {
-        username: "TestAccountRejected",
-        email: "rejected@hotmail.com",
+        username: "TestAccount3",
+        email: "support.queue@outlook.com",
+        app_password: "test-password",
+      },
+      {
+        username: "TestAccount4",
+        email: "support.queue@outlook.com",
         app_password: "test-password",
       },
     ],

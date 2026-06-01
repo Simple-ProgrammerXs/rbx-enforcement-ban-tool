@@ -91,6 +91,7 @@ export interface AccountDashboardState {
 
 export interface DashboardState {
   appName: string;
+  testMode?: boolean;
   startedAt: number;
   cycle: number;
   running: boolean;

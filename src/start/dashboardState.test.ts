@@ -32,6 +32,14 @@ describe("dashboard test-mode sample history", () => {
     ).toBe(true);
   });
 
+  test("only shows one approval for approved sample accounts", () => {
+    const history = buildSampleHistory("ExampleUser", "approved", 1_700_000_000_000, 9);
+
+    expect(history.at(-1)?.status).toBe("approved");
+    expect(history.filter((appeal) => appeal.status === "approved")).toHaveLength(1);
+    expect(history.slice(0, -1).every((appeal) => appeal.status === "rejected")).toBe(true);
+  });
+
   test("exposes the configured Discord webhook URL for the local dashboard", () => {
     setDashboardWebhook(FAKE_DISCORD_WEBHOOK_URL);
 

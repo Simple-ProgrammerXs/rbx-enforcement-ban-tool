@@ -18,6 +18,7 @@ export interface AppealRecord {
   bootstrapped?: boolean;
   message?: string;
   responseMessageId?: string;
+  responseFingerprint?: string;
   responseStatus?: ResponseStatus;
   responseSubject?: string;
   responseBody?: string;
@@ -33,6 +34,7 @@ type AppealRow = {
   bootstrapped: number;
   message: string | null;
   response_message_id: string | null;
+  response_fingerprint: string | null;
   response_status: ResponseStatus | null;
   response_subject: string | null;
   response_body: string | null;
@@ -44,6 +46,19 @@ function ensureDir(): void {
   mkdirSync(DB_DIR, { recursive: true });
 }
 
+function hasColumn(table: string, column: string): boolean {
+  return db
+    .query<{ name: string }, []>(`PRAGMA table_info(${table})`)
+    .all()
+    .some((row) => row.name === column);
+}
+
+function addColumnIfMissing(table: string, columnName: string, definition: string): void {
+  if (!hasColumn(table, columnName)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${definition};`);
+  }
+}
+
 function mapAppeal(row: AppealRow): AppealRecord {
   return {
     id: row.id,
@@ -53,6 +68,7 @@ function mapAppeal(row: AppealRow): AppealRecord {
     ...(row.bootstrapped ? { bootstrapped: true } : {}),
     ...(row.message ? { message: row.message } : {}),
     ...(row.response_message_id ? { responseMessageId: row.response_message_id } : {}),
+    ...(row.response_fingerprint ? { responseFingerprint: row.response_fingerprint } : {}),
     ...(row.response_status ? { responseStatus: row.response_status } : {}),
     ...(row.response_subject ? { responseSubject: row.response_subject } : {}),
     ...(row.response_body ? { responseBody: row.response_body } : {}),
@@ -77,6 +93,7 @@ db.exec(`
     bootstrapped INTEGER NOT NULL DEFAULT 0,
     message TEXT,
     response_message_id TEXT UNIQUE,
+    response_fingerprint TEXT,
     response_status TEXT CHECK (
       response_status IS NULL OR
       response_status IN ('submitted', 'rejected', 'approved', 'escalated')
@@ -95,14 +112,16 @@ db.exec(`
 `);
 
 // Migrate databases created before the message/response columns existed.
-// ALTER fails on the columns that already exist, which is expected and ignored.
-for (const column of ["message TEXT", "response_body TEXT", "response_html TEXT"]) {
-  try {
-    db.exec(`ALTER TABLE appeals ADD COLUMN ${column};`);
-  } catch {
-    // Column already present — nothing to do.
-  }
-}
+addColumnIfMissing("appeals", "message", "message TEXT");
+addColumnIfMissing("appeals", "response_body", "response_body TEXT");
+addColumnIfMissing("appeals", "response_html", "response_html TEXT");
+addColumnIfMissing("appeals", "response_fingerprint", "response_fingerprint TEXT");
+
+db.exec(`
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_appeals_response_fingerprint
+    ON appeals (response_fingerprint)
+    WHERE response_fingerprint IS NOT NULL;
+`);
 
 // Persisted dashboard login sessions, so authentication survives a restart.
 db.exec(`
@@ -144,6 +163,7 @@ const RETURNING_COLUMNS = `
   bootstrapped,
   message,
   response_message_id,
+  response_fingerprint,
   response_status,
   response_subject,
   response_body,
@@ -195,11 +215,12 @@ const selectPendingAppealForEmailResponse = db.query<AppealRow, [string, number]
 
 const selectResponseMessage = db.query<
   { id: number; response_body: string | null; response_html: string | null },
-  [string]
+  [string, string]
 >(`
   SELECT id, response_body, response_html
   FROM appeals
   WHERE response_message_id = ?
+    OR response_fingerprint = ?
   LIMIT 1
 `);
 
@@ -229,11 +250,12 @@ const selectSubmittedConfirmationTarget = db.query<AppealRow, [string, number, n
 
 const updateAppealResponse = db.query<
   AppealRow,
-  [string, ResponseStatus, string, string | null, string | null, number, number]
+  [string, string, ResponseStatus, string, string | null, string | null, number, number]
 >(`
   UPDATE appeals
   SET
     response_message_id = ?,
+    response_fingerprint = ?,
     response_status = ?,
     response_subject = ?,
     response_body = ?,
@@ -274,8 +296,22 @@ export function addSubmission(
   return mapAppeal(row);
 }
 
-function hasResponseMessage(messageId: string, body?: string, html?: string): boolean {
-  const existing = selectResponseMessage.get(messageId);
+function responseFingerprint(messageId: string, subject: string): string {
+  const ticketMatch = subject.match(/\broblox\s+support\s+ticket\s*#?\s*([0-9]+)/iu);
+  if (ticketMatch) {
+    return `roblox-support-ticket:${ticketMatch[1]}`;
+  }
+
+  return `message-id:${messageId.trim()}`;
+}
+
+function hasResponseMessage(
+  messageId: string,
+  fingerprint: string,
+  body?: string,
+  html?: string,
+): boolean {
+  const existing = selectResponseMessage.get(messageId, fingerprint);
   if (!existing) {
     return false;
   }
@@ -321,6 +357,7 @@ function findSubmittedConfirmationTarget(
 function setAppealResponse(
   id: number,
   messageId: string,
+  fingerprint: string,
   status: ResponseStatus,
   subject: string,
   respondedAt: number,
@@ -329,6 +366,7 @@ function setAppealResponse(
 ): boolean {
   const row = updateAppealResponse.get(
     messageId,
+    fingerprint,
     status,
     subject,
     body ?? null,
@@ -348,7 +386,8 @@ export function recordResponse(
   body?: string,
   html?: string,
 ): boolean {
-  if (hasResponseMessage(messageId, body, html)) {
+  const fingerprint = responseFingerprint(messageId, subject);
+  if (hasResponseMessage(messageId, fingerprint, body, html)) {
     return false;
   }
 
@@ -358,7 +397,16 @@ export function recordResponse(
     return false;
   }
 
-  return setAppealResponse(target.id, messageId, status, subject, respondedAt, body, html);
+  return setAppealResponse(
+    target.id,
+    messageId,
+    fingerprint,
+    status,
+    subject,
+    respondedAt,
+    body,
+    html,
+  );
 }
 
 export function recordSubmittedConfirmation(
@@ -369,7 +417,8 @@ export function recordSubmittedConfirmation(
   body?: string,
   html?: string,
 ): boolean {
-  if (hasResponseMessage(messageId, body, html)) {
+  const fingerprint = responseFingerprint(messageId, subject);
+  if (hasResponseMessage(messageId, fingerprint, body, html)) {
     return false;
   }
 
@@ -378,7 +427,16 @@ export function recordSubmittedConfirmation(
     return false;
   }
 
-  return setAppealResponse(target.id, messageId, "submitted", subject, respondedAt, body, html);
+  return setAppealResponse(
+    target.id,
+    messageId,
+    fingerprint,
+    "submitted",
+    subject,
+    respondedAt,
+    body,
+    html,
+  );
 }
 
 export function recordHumanTicket(
@@ -389,7 +447,8 @@ export function recordHumanTicket(
   body?: string,
   html?: string,
 ): boolean {
-  if (hasResponseMessage(messageId, body, html)) {
+  const fingerprint = responseFingerprint(messageId, subject);
+  if (hasResponseMessage(messageId, fingerprint, body, html)) {
     return false;
   }
 
@@ -398,7 +457,16 @@ export function recordHumanTicket(
     return false;
   }
 
-  return setAppealResponse(target.id, messageId, "escalated", subject, respondedAt, body, html);
+  return setAppealResponse(
+    target.id,
+    messageId,
+    fingerprint,
+    "escalated",
+    subject,
+    respondedAt,
+    body,
+    html,
+  );
 }
 
 export function recordHumanTicketForEmail(
@@ -409,7 +477,8 @@ export function recordHumanTicketForEmail(
   body?: string,
   html?: string,
 ): boolean {
-  if (hasResponseMessage(messageId, body, html)) {
+  const fingerprint = responseFingerprint(messageId, subject);
+  if (hasResponseMessage(messageId, fingerprint, body, html)) {
     return false;
   }
 
@@ -418,7 +487,16 @@ export function recordHumanTicketForEmail(
     return false;
   }
 
-  return setAppealResponse(row.id, messageId, "escalated", subject, respondedAt, body, html);
+  return setAppealResponse(
+    row.id,
+    messageId,
+    fingerprint,
+    "escalated",
+    subject,
+    respondedAt,
+    body,
+    html,
+  );
 }
 
 export function getAppealsForAccount(username: string): AppealRecord[] {

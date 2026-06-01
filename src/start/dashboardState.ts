@@ -11,7 +11,8 @@ const startedAt = Date.now();
 let webhookUrl = "";
 
 const state: DashboardState = {
-  appName: "RoAppeal OSS",
+  appName: "Enforcement Ban Tool",
+  testMode: false,
   startedAt,
   cycle: 0,
   running: true,
@@ -119,6 +120,10 @@ export function setDashboardConfigurationError(message?: string): void {
   state.configurationError = message;
 }
 
+export function setDashboardTestMode(testMode: boolean): void {
+  state.testMode = testMode;
+}
+
 export function setNextDashboardCheck(timestamp: number): void {
   state.nextCheckAt = timestamp;
 }
@@ -198,15 +203,12 @@ export function buildSampleHistory(
   count = 5,
 ): AppealEntry[] {
   const message =
-    "Hey Roblox, my account {user} got banned for ban evasion, but I didn't do that. I live with family, and we all share the same wifi. Years ago we used one family email, then made our own accounts later. I think the system got confused. Could you please review my account? Thanks!";
+    "Hi Roblox Support,\n\nI'm requesting a review for {user}. I believe this moderation action may have been triggered by shared household activity and does not reflect the account's actual usage. Please review the account history and any related signals when you have a chance.\n\nThank you.";
   const latest = current === "unknown" ? "submitted" : current;
-  const sampleStatuses: AppealEntry["status"][] = [
-    "rejected",
-    "stale",
-    "escalated",
-    "rejected",
-    "approved",
-  ];
+  const sampleStatuses: AppealEntry["status"][] =
+    latest === "approved"
+      ? ["rejected"]
+      : ["rejected", "stale", "escalated", "rejected", "approved"];
   const sequence = Array.from({ length: Math.max(1, count) }, (_, index) =>
     index === Math.max(1, count) - 1 ? latest : sampleStatuses[index % sampleStatuses.length]!,
   );
@@ -232,6 +234,16 @@ export function buildSampleHistory(
       status,
       ...(responded ? { respondedAt: submittedAt + 60 * 60 * 1000 } : {}),
       message: message.replaceAll("{user}", username),
+      responseSubject:
+        status === "submitted"
+          ? "Roblox Support appeal confirmation"
+          : status === "approved"
+            ? "Roblox Support appeal approved"
+            : status === "escalated"
+              ? "Roblox Support case escalated"
+              : status === "rejected"
+                ? "Roblox Support appeal update"
+                : undefined,
       ...(response ? { response } : {}),
     };
   });

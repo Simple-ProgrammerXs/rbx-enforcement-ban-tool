@@ -34,12 +34,7 @@ function LoginPage() {
                 alt="RoAppeal"
               />
             </span>
-            <strong className="flex flex-wrap items-center gap-2 text-[17px] text-white">
-              RoAppeal
-              <span className="rounded border border-red-400/30 bg-red-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.08em] text-red-300">
-                OSS
-              </span>
-            </strong>
+            <strong className="text-[17px] text-white">RoAppeal</strong>
           </a>
           <h1 className="text-2xl font-bold text-white">Enforcement Ban Tool</h1>
           <p className="mt-1 text-sm text-[#7e7499]">Enter your dashboard password</p>

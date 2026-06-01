@@ -102,7 +102,10 @@ export function buildDiscordWebhookTestPayload(
           { name: "Username", value: "`TestAccount`", inline: true },
           { name: "Appeal #", value: "1", inline: true },
         ],
-        footer: { text: "RoAppeal OSS \u00b7 TEST WEBHOOK", icon_url: DISCORD_FOOTER_ICON_URL },
+        footer: {
+          text: "Enforcement Ban Tool by RoAppeal \u00b7 TEST WEBHOOK",
+          icon_url: DISCORD_FOOTER_ICON_URL,
+        },
         timestamp: new Date().toISOString(),
       },
     ],

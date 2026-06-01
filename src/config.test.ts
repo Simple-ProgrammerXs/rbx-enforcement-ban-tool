@@ -152,9 +152,10 @@ describe("test mode config", () => {
       expect(config.isTestMode()).toBe(true);
       expect(config.loadTestConfig()).toMatchObject({
         accounts: [
-          { username: "TestAccountApproved" },
-          { username: "TestAccountPending" },
-          { username: "TestAccountRejected" },
+          { username: "TestAccount1" },
+          { username: "TestAccount2" },
+          { username: "TestAccount3" },
+          { username: "TestAccount4" },
         ],
         captcha: { provider: "cds", api_key: "test-captcha-key" },
         ai: { model: "test-model", api_key: "test-ai-key" },

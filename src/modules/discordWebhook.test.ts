@@ -53,7 +53,7 @@ describe("discordWebhook", () => {
     expect(payload.embeds[0]?.description).toBeUndefined();
     expect(payload.embeds[0]?.color).toBe(0x22c55e);
     expect(payload.embeds[0]?.footer).toEqual({
-      text: "RoAppeal OSS \u00b7 TEST WEBHOOK",
+      text: "Enforcement Ban Tool by RoAppeal \u00b7 TEST WEBHOOK",
       icon_url: DISCORD_FOOTER_ICON_URL,
     });
   });

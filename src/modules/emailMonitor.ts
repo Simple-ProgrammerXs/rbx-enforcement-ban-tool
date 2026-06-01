@@ -3,7 +3,7 @@ import { Logger } from "./logger";
 import {
   addSubmission,
   recordResponse,
-  recordHumanTicketForEmail,
+  recordHumanTicket,
   recordSubmittedConfirmation,
   getAppealsForAccount,
 } from "./database";
@@ -47,6 +47,7 @@ function emailMatchesAccount(
   }
 
   if (
+    allowRecipientMatch &&
     normalizedAccountEmail.length > 0 &&
     (subject.toLowerCase().includes(normalizedAccountEmail) ||
       body.toLowerCase().includes(normalizedAccountEmail))
@@ -520,8 +521,6 @@ export async function checkForNewResponses(
         return { imapFailed: false };
       }
 
-      const normalizedAccountEmail = account.email.trim().toLowerCase();
-
       type MatchedEmail = {
         messageId: string;
         status: "submitted" | "rejected" | "approved" | "escalated";
@@ -569,7 +568,7 @@ export async function checkForNewResponses(
           const parsed = parseRobloxResponse(subject, body, fromAddress);
           if (
             parsed === "escalated" &&
-            recipients.some((r) => r.toLowerCase() === normalizedAccountEmail)
+            emailMatchesAccount(subject, body, recipients, account, allowRecipientMatch)
           ) {
             matched.push({
               messageId,
@@ -639,8 +638,8 @@ export async function checkForNewResponses(
             );
           }
         } else if (email.isHumanTicket) {
-          recordHumanTicketForEmail(
-            account.email,
+          recordHumanTicket(
+            account.username,
             email.messageId,
             email.subject,
             email.emailDate,

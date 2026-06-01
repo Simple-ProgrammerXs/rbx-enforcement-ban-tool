@@ -1,6 +1,11 @@
 import { isTestMode, loadConfig, loadProxies, loadTestConfig } from "../config";
-import { loadSavedDashboardWebhookUrl } from "../modules/database";
-import type { AccountConfig, AppealEntry, AppealStatus, CaptchaConfig } from "../types";
+import type {
+  AccountConfig,
+  AppealEntry,
+  AppealStatus,
+  CaptchaConfig,
+  DashboardConfig,
+} from "../types";
 import { DISCORD_FOOTER_ICON_URL, sendDiscordWebhook } from "../modules/discordWebhook";
 import { Logger } from "../modules/logger";
 import {
@@ -11,6 +16,7 @@ import {
   initializeDashboardState,
   setDashboardConfigurationError,
   setDashboardRunning,
+  setDashboardTestMode,
   setDashboardWebhook,
   setNextDashboardCheck,
   syncDashboardAppealHistory,
@@ -83,12 +89,34 @@ async function loadRealWorkerModules(): Promise<RealWorkerModules> {
   };
 }
 
+async function loadSavedWebhookUrl(): Promise<string | undefined> {
+  const { loadSavedDashboardWebhookUrl } = await import("../modules/database");
+  return loadSavedDashboardWebhookUrl();
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown startup error";
 }
 
 function shouldRunTestWorker(): boolean {
   return isTestMode();
+}
+
+function dashboardUrl(dashboard?: DashboardConfig): string {
+  const rawHost = dashboard?.host ?? "127.0.0.1";
+  const host = rawHost === "0.0.0.0" || rawHost === "::" ? "127.0.0.1" : rawHost;
+  const port = dashboard?.port ?? 3000;
+
+  return `http://${host}:${port}/dashboard`;
+}
+
+function logDashboardUrl(dashboard?: DashboardConfig): void {
+  if (process.env.NODE_ENV === "production") {
+    Logger.info(`Open ${dashboardUrl(dashboard)}`);
+    return;
+  }
+
+  Logger.info("Open the Vite Local URL above with /dashboard");
 }
 
 async function isRobloxAccountBanned(
@@ -136,7 +164,7 @@ function buildAppealEmbed(
       { name: "Username", value: `\`${username}\``, inline: true },
       { name: "Appeal #", value: String(appealNum), inline: true },
     ],
-    footer: { text: "RoAppeal OSS", icon_url: DISCORD_FOOTER_ICON_URL },
+    footer: { text: "Enforcement Ban Tool by RoAppeal", icon_url: DISCORD_FOOTER_ICON_URL },
     timestamp: new Date().toISOString(),
   };
   if (description) {
@@ -273,47 +301,71 @@ function calculateNextCheckTime(
 
 async function runTestWorker(): Promise<void> {
   const config = loadTestConfig();
+  const scenarios: Array<{
+    status: AppealStatus;
+    count: number;
+    action: string;
+    lastError?: string;
+    rejectionWaitMs?: number;
+    failedSubmissions?: number;
+  }> = [
+    {
+      status: "approved",
+      count: 9,
+      action: "Approved, no further action",
+    },
+    {
+      status: "submitted",
+      count: 6,
+      action: "Waiting for Roblox support response",
+    },
+    {
+      status: "escalated",
+      count: 7,
+      action: "Escalated to support team",
+    },
+    {
+      status: "rejected",
+      count: 5,
+      action: "Waiting before resubmitting after rejection",
+      lastError: "Latest appeal was rejected; retry window is active",
+      rejectionWaitMs: 42 * 60 * 1000,
+      failedSubmissions: 1,
+    },
+  ];
+
   initializeDashboardState(config.accounts);
-  setDashboardWebhook(
-    loadSavedDashboardWebhookUrl() ?? config.dashboard?.discord_webhook_url ?? "",
-  );
-  Logger.header("RoAppeal OSS", "Enforcement Ban Tool - Test Mode");
-  Logger.info("TanStack Start dashboard and integrated worker are running in test mode");
+  setDashboardTestMode(true);
+  setDashboardRunning(true);
+  setDashboardWebhook("");
+  Logger.header("RoAppeal", "Enforcement Ban Tool - Test Mode");
+  Logger.info("Dashboard is running in test mode with stable sample data");
+  logDashboardUrl(config.dashboard);
 
-  const statuses = ["approved", "submitted", "stale", "rejected", "escalated"] as const;
-  const appealCountsByAccount: Record<string, number> = {
-    TestAccountApproved: 55,
-    TestAccountPending: 18,
-    TestAccountRejected: 27,
-  };
-
+  let cycle = 0;
   while (!isShuttingDown()) {
-    const cycle = Math.floor(Date.now() / 5000);
+    cycle += 1;
     const now = Date.now();
     beginDashboardCycle(cycle);
-    setNextDashboardCheck(now + 5000);
+    setNextDashboardCheck(now + 5 * 60 * 1000);
 
     config.accounts.forEach((account, index) => {
-      const status = statuses[(cycle + index) % statuses.length]!;
+      const scenario = scenarios[index % scenarios.length]!;
       syncDashboardAppealHistory(
         account.username,
-        buildSampleHistory(
-          account.username,
-          status,
-          now,
-          appealCountsByAccount[account.username] ?? 12,
-        ),
+        buildSampleHistory(account.username, scenario.status, now, scenario.count),
       );
       updateDashboardAccount(account.username, {
-        status,
-        lastCheckedAt: now,
-        lastAction: `Test mode sample status: ${status}`,
-        lastError: status === "rejected" ? "Sample rejected state for UI testing" : undefined,
-        rejectionWaitUntil: status === "rejected" ? now + 60_000 : undefined,
+        status: scenario.status,
+        lastCheckedAt: now - (index + 1) * 75_000,
+        lastAction: scenario.action,
+        lastError: scenario.lastError,
+        failedSubmissions: scenario.failedSubmissions ?? 0,
+        rejectionWaitUntil: scenario.rejectionWaitMs ? now + scenario.rejectionWaitMs : undefined,
       });
     });
 
-    await sleep(5000);
+    await sleep(10_000);
   }
 }
 
@@ -577,6 +629,7 @@ async function runRealWorker(): Promise<void> {
     const message = errorMessage(error);
     Logger.error(`Configuration error: ${message}`);
     initializeDashboardState([]);
+    setDashboardTestMode(false);
     setDashboardConfigurationError(message);
     setDashboardRunning(false);
     return;
@@ -595,11 +648,11 @@ async function runRealWorker(): Promise<void> {
   }, {});
 
   initializeDashboardState(config.accounts);
-  setDashboardWebhook(
-    loadSavedDashboardWebhookUrl() ?? config.dashboard?.discord_webhook_url ?? "",
-  );
-  Logger.header("RoAppeal OSS", "Enforcement Ban Tool");
+  setDashboardTestMode(false);
+  setDashboardWebhook((await loadSavedWebhookUrl()) ?? config.dashboard?.discord_webhook_url ?? "");
+  Logger.header("RoAppeal", "Enforcement Ban Tool");
   Logger.info("TanStack Start dashboard and integrated worker are running");
+  logDashboardUrl(config.dashboard);
   if (proxies.length === 0) {
     Logger.info("No proxies configured; submissions will use the local network");
   } else {
