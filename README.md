@@ -23,7 +23,6 @@ This project is not affiliated with, endorsed by, or sponsored by Roblox Corpora
 - IMAP response monitoring for Gmail and Outlook/Microsoft inboxes
 - SQLite appeal history using Bun's `bun:sqlite`
 - AI-assisted appeal draft generation through [Vercel AI Gateway](https://vercel.com/ai-gateway)
-- CAPTCHA solver support for `2captcha`, `cds`, and `funbypass`
 - Optional proxy and Discord webhook support
 - Config via JSON files or environment variables
 - TypeScript, ESLint, Prettier, Bun tests, and CI
@@ -32,6 +31,7 @@ This project is not affiliated with, endorsed by, or sponsored by Roblox Corpora
 
 - [Bun](https://bun.sh/) 1.3 or newer
 - [Vercel AI Gateway](https://vercel.com/ai-gateway) API key
+- [2Captcha](https://2captcha.com/auth/register/?from=28003462) account and API key
 - CAPTCHA provider API key
 - IMAP app password for the inbox that receives Roblox support responses
 - Proxies in `config/proxies.txt`
@@ -224,8 +224,6 @@ src/modules/submitter.ts Roblox support submission flow
 ```
 
 ## Security
-
-Never commit `.env`, real proxy lists, database files, email passwords, API keys, or Discord webhook URLs. Committing `config/config.json` is fine when it only contains non-secret settings and `env:` references. If a secret is committed, rotate it immediately.
 
 See [SECURITY.md](./SECURITY.md) for vulnerability reporting.
 
