@@ -29,6 +29,7 @@ data/
 # OS / editor
 .DS_Store
 Thumbs.db
+.editorconfig
 *.log
 *.swp
 .vscode/
