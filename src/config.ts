@@ -1,7 +1,14 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AccountConfig, AiConfig, AppConfig, CaptchaConfig, CaptchaProvider } from "./types";
+import type {
+  AccountConfig,
+  AiConfig,
+  AppConfig,
+  CaptchaConfig,
+  CaptchaProvider,
+  DashboardConfig,
+} from "./types";
 import { isValidDiscordWebhookUrl } from "./modules/discordWebhook";
 import { imapHostForEmail, SUPPORTED_EMAIL_PROVIDERS } from "./modules/emailProviders";
 
@@ -309,8 +316,23 @@ export function loadConfigErrorDashboardConfig(): ConfigErrorDashboardConfig {
   return { host, port };
 }
 
+function loadTestDashboardConfigOverrides(): Partial<DashboardConfig> {
+  try {
+    const parsed = loadRawConfig();
+    return recordValue(parsed.dashboard) ?? {};
+  } catch {
+    return {};
+  }
+}
+
 export function loadTestConfig(): AppConfig {
   const dashboard = loadConfigErrorDashboardConfig();
+  const dashboardOverrides = loadTestDashboardConfigOverrides();
+  const requirePasswordEnv = envValue("DASHBOARD_REQUIRE_PASSWORD")?.toLowerCase();
+  const password =
+    envValue("DASHBOARD_PASSWORD") ??
+    resolveOptionalSecret(dashboardOverrides.password, "dashboard.password") ??
+    "test";
 
   return {
     accounts: [
@@ -350,9 +372,11 @@ export function loadTestConfig(): AppConfig {
       enabled: true,
       host: dashboard.host,
       port: dashboard.port,
-      // Password protection is opt-in; test mode leaves the dashboard open.
-      require_password: (envValue("DASHBOARD_REQUIRE_PASSWORD")?.toLowerCase() ?? "") === "1",
-      password: envValue("DASHBOARD_PASSWORD") ?? "test",
+      require_password:
+        requirePasswordEnv !== undefined
+          ? TRUE_VALUES.has(requirePasswordEnv)
+          : dashboardOverrides.require_password === true,
+      password,
     },
   };
 }

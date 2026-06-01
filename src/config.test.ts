@@ -186,6 +186,46 @@ describe("test mode config", () => {
     }
   });
 
+  test("uses dashboard password settings from config in test mode", async () => {
+    const { config, restore } = await loadConfigModule({
+      configJson: JSON.stringify({
+        test_mode: true,
+        dashboard: {
+          enabled: true,
+          require_password: true,
+          password: "preview-password",
+        },
+      }),
+    });
+
+    try {
+      expect(config.loadTestConfig()).toMatchObject({
+        dashboard: {
+          require_password: true,
+          password: "preview-password",
+        },
+      });
+    } finally {
+      restore();
+    }
+  });
+
+  test("lets DASHBOARD_REQUIRE_PASSWORD override test mode config", async () => {
+    const { config, restore } = await loadConfigModule({
+      configJson: JSON.stringify({
+        test_mode: true,
+        dashboard: { enabled: true, require_password: true },
+      }),
+    });
+
+    try {
+      process.env.DASHBOARD_REQUIRE_PASSWORD = "false";
+      expect(config.loadTestConfig().dashboard?.require_password).toBe(false);
+    } finally {
+      restore();
+    }
+  });
+
   test("validates test_mode type in full config loading", async () => {
     const { config, restore } = await loadConfigModule({
       configJson: JSON.stringify({ test_mode: "true", accounts: [] }),
