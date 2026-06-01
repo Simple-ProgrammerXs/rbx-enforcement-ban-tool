@@ -1,0 +1,68 @@
+{
+  "name": "rbx-enforcement-ban-tool",
+  "version": "2.0.0",
+  "description": "Enforcement Ban Tool — self-hosted Roblox enforcement ban appeal helper with a local dashboard. Not affiliated with Roblox Corporation.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "author": "RoAppeal",
+  "homepage": "https://github.com/RoAppeal/rbx-enforcement-ban-tool#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RoAppeal/rbx-enforcement-ban-tool.git"
+  },
+  "bugs": {
+    "url": "https://github.com/RoAppeal/rbx-enforcement-ban-tool/issues"
+  },
+  "keywords": [
+    "roblox",
+    "appeals",
+    "dashboard",
+    "bun",
+    "typescript",
+    "tanstack-start",
+    "vite",
+    "react",
+    "tailwindcss"
+  ],
+  "engines": {
+    "bun": ">=1.3.0"
+  },
+  "scripts": {
+    "start": "NODE_ENV=production bun .output/server/index.mjs",
+    "dev": "bunx --bun vite dev",
+    "build": "NODE_ENV=production vite build",
+    "build:binary": "bun scripts/build.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.0",
+    "@tanstack/react-router": "^1.170.10",
+    "@tanstack/react-start": "^1.168.18",
+    "ai": "^6.0.0",
+    "iconv-lite": "^0.7.2",
+    "imapflow": "^1.0.171",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "socks": "^2.8.0",
+    "tailwindcss": "^4.3.0",
+    "undici": "^7.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/bun": "latest",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "eslint": "^9.39.1",
+    "nitro": "^3.0.260522-beta",
+    "prettier": "^3.8.3",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.48.0",
+    "vite": "^8.0.14"
+  }
+}

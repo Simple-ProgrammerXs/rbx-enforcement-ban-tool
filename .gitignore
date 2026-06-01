@@ -1,0 +1,47 @@
+node_modules/
+.bun/
+.npm/
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+.envrc
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cert
+
+# Local config - copy config/config.example.json to config/config.json and fill in your own values
+config/config.json
+config/*.tmp
+config/proxies.txt
+config/proxies*.tmp
+
+# Local runtime state
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+.vscode/
+.idea/
+
+# Build artifacts
+dist/
+build/
+.output/
+.tanstack/
+coverage/
+.vercel/
+.netlify/
+.railway/
+.wrangler/
+*.exe

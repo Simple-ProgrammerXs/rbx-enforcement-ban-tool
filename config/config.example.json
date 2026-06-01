@@ -1,0 +1,29 @@
+{
+  "$schema": "./config.schema.json",
+  "test_mode": false,
+  "accounts": [
+    {
+      "username": "YourRobloxUsername",
+      "email": "your-email@gmail.com",
+      "app_password": "env:EMAIL_APP_PASSWORD"
+    }
+  ],
+  "captcha": {
+    "provider": "2captcha",
+    "api_key": "env:CAPTCHA_API_KEY"
+  },
+  "ai": {
+    "model": "openai/gpt-4o-mini",
+    "api_key": "env:AI_GATEWAY_API_KEY"
+  },
+  "check_interval_minutes": 15,
+  "rejection_wait_minutes": 60,
+  "same_email_submission_delay_minutes": 5,
+  "dashboard": {
+    "enabled": true,
+    "port": 3000,
+    "require_password": false,
+    "password": "env:DASHBOARD_PASSWORD",
+    "discord_webhook_url": "env:DISCORD_WEBHOOK_URL"
+  }
+}

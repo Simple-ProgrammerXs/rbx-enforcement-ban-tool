@@ -1,0 +1,6 @@
+# Optional. Copy this file to config/proxies.txt and add your own proxies.
+# Add one proxy per line only when you need separate network egress, such as multi-account operation.
+#
+# Supported examples:
+# socks5://user:pass@host:port
+# http://user:pass@host:port

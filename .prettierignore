@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.output/
+.tanstack/
+build/
+data/
+config/config.json
+config/*.tmp
+config/proxies.txt
+config/proxies*.tmp
+src/routeTree.gen.ts
+*.exe
+bun.lock

@@ -1,0 +1,16 @@
+services:
+  roappeal-oss:
+    build: .
+    image: roappeal/rbx-enforcement-ban-tool:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DASHBOARD_HOST: 0.0.0.0
+      DASHBOARD_PORT: 3000
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./config/config.json:/app/config/config.json:ro
+      - ./config/proxies.txt:/app/config/proxies.txt:ro
+      - ./data:/app/data
