@@ -8,7 +8,7 @@
   <img src="https://railway.com/button.svg" alt="Deploy on Railway" height="32">
 </a>
 
-Enforcement Ban Tool by RoAppeal is a self-hosted Bun and TypeScript app for managing Roblox account appeal workflows from a local dashboard. It monitors appeal response emails, tracks appeal state in SQLite, generates appeal drafts, submits appeal requests, and can send Discord notifications.
+Enforcement Ban Tool by RoAppeal is a self-hosted Bun and TypeScript app for managing Roblox enforcement ban appeals from a local dashboard. It monitors appeal response emails, tracks appeal state in SQLite, uses AI to generate appeal drafts, submits appeal requests, and can send Discord notifications.
 
 ![Enforcement Ban Tool dashboard](./docs/dashboard.png)
 
