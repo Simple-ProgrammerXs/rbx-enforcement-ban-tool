@@ -3,7 +3,10 @@
 [![CI](https://github.com/RoAppeal/rbx-enforcement-ban-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/RoAppeal/rbx-enforcement-ban-tool/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Bun](https://img.shields.io/badge/bun-%3E%3D1.3-black.svg)](https://bun.sh/)
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/K-GyWz?referralCode=iRdruT&utm_medium=integration&utm_source=template&utm_campaign=generic)
+
+<a href="https://railway.com/deploy/K-GyWz?referralCode=iRdruT&utm_medium=integration&utm_source=template&utm_campaign=generic">
+  <img src="https://railway.com/button.svg" alt="Deploy on Railway" height="32">
+</a>
 
 Enforcement Ban Tool by RoAppeal is a self-hosted Bun and TypeScript app for managing Roblox account appeal workflows from a local dashboard. It monitors appeal response emails, tracks appeal state in SQLite, generates appeal drafts, submits appeal requests, and can send Discord notifications.
 
