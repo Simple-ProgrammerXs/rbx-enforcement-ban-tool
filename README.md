@@ -20,7 +20,7 @@ This project is not affiliated with, endorsed by, or sponsored by Roblox Corpora
 ## Features
 
 - Local TanStack Start dashboard with React, Vite, and Tailwind CSS
-- IMAP response monitoring for Gmail and Outlook/Microsoft inboxes
+- IMAP response monitoring for Gmail and Outlook inboxes
 - SQLite appeal history using Bun's `bun:sqlite`
 - AI-assisted appeal draft generation through [Vercel AI Gateway](https://vercel.com/ai-gateway)
 - Optional proxy and Discord webhook support
