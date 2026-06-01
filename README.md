@@ -68,18 +68,6 @@ If port `3000` is already in use, run `npm run dev -- --port 3001` and open the 
 
 Password protection is off by default. Set `dashboard.require_password` to `true` and use `dashboard.password` or `DASHBOARD_PASSWORD` to require login.
 
-## Test Mode
-
-Enable test mode in `config/config.json` to preview the dashboard without service credentials:
-
-```json
-{
-  "test_mode": true
-}
-```
-
-Test mode uses sample accounts and does not connect to IMAP, AI Gateway, CAPTCHA providers, Roblox, proxies, or Discord. If `dashboard.require_password` is enabled, the default password is `test` unless `DASHBOARD_PASSWORD` is set.
-
 ## Configuration
 
 Copy `config/config.example.json` to `config/config.json` and keep secrets in environment variables:
