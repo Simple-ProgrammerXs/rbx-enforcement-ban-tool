@@ -22,7 +22,7 @@ This project is not affiliated with, endorsed by, or sponsored by Roblox Corpora
 - Local TanStack Start dashboard with React, Vite, and Tailwind CSS
 - IMAP response monitoring for Gmail and Outlook inboxes
 - SQLite appeal history using Bun's `bun:sqlite`
-- AI-assisted appeal draft generation through [Vercel AI Gateway](https://vercel.com/ai-gateway)
+- AI-assisted appeal draft generation through [Groq](https://console.groq.com/docs/text-chat), with [Vercel AI Gateway](https://vercel.com/ai-gateway) still supported
 - Discord webhook support
 - Config via JSON files or environment variables
 - TypeScript, ESLint, Prettier, Bun tests, and CI
@@ -30,7 +30,7 @@ This project is not affiliated with, endorsed by, or sponsored by Roblox Corpora
 ## Requirements
 
 - [Bun](https://bun.sh/) 1.3 or newer
-- [Vercel AI Gateway](https://vercel.com/ai-gateway) API key
+- [Groq](https://console.groq.com/keys) API key recommended, or [Vercel AI Gateway](https://vercel.com/ai-gateway) API key
 - [2Captcha](https://2captcha.com/auth/register/?from=28003462) account and API key
 - CAPTCHA provider API key
 - IMAP app password for the inbox that receives Roblox support responses
@@ -51,7 +51,9 @@ Fill in `.env`:
 
 ```dotenv
 EMAIL_APP_PASSWORD=your-email-app-password
-AI_GATEWAY_API_KEY=...
+AI_PROVIDER=groq
+AI_MODEL=openai/gpt-oss-120b
+GROQ_API_KEY=...
 CAPTCHA_API_KEY=...
 DASHBOARD_PASSWORD=use-a-long-random-password
 ```
@@ -91,8 +93,9 @@ Copy `config/config.example.json` to `config/config.json` and keep secrets in en
     "api_key": "env:CAPTCHA_API_KEY"
   },
   "ai": {
-    "model": "openai/gpt-4o-mini",
-    "api_key": "env:AI_GATEWAY_API_KEY"
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "api_key": "env:GROQ_API_KEY"
   },
   "dashboard": {
     "enabled": true,
@@ -108,6 +111,8 @@ The schema in `config/config.schema.json` is the source of truth for supported k
 - Gmail and Outlook/Microsoft IMAP hosts are auto-detected. Other email providers need `accounts[].imap_server`.
 - Use a different email inbox for each Roblox account when possible. It makes response matching cleaner and reduces same-inbox submission delays.
 - `accounts[].app_password`, `captcha.api_key`, `ai.api_key`, and `dashboard.password` support `env:VARIABLE_NAME`.
+- Groq is the recommended AI provider. To use Vercel AI Gateway instead, set `ai.provider` to `gateway`, use a Gateway model such as `openai/gpt-4o-mini`, and set `ai.api_key` to `env:AI_GATEWAY_API_KEY`.
+- Groq currently offers a [Free plan](https://groq.com/products) for getting started with its APIs. Free usage is subject to Groq's published [rate limits](https://console.groq.com/docs/rate-limits).
 - Recommended CAPTCHA solver: [2Captcha](https://2captcha.com/auth/register/?from=28003462).
 - `dashboard.host` is intentionally not a config key. Use `DASHBOARD_HOST`; it defaults to `127.0.0.1`.
 - Unsafe placeholder secrets such as `admin`, `change-me`, and sample API keys are rejected at startup.
@@ -119,8 +124,10 @@ Useful environment overrides:
 | `CONFIG_PATH`                | Use a config file outside `config/config.json`      |
 | `CONFIG_JSON`                | Use an inline JSON config object                    |
 | `ACCOUNTS_JSON`              | Replace `accounts` with a JSON array                |
-| `AI_MODEL`                   | Override `ai.model`                                 |
-| `AI_GATEWAY_API_KEY`         | AI Gateway API key                                  |
+| `AI_PROVIDER`                | Override `ai.provider` (`groq` recommended, or `gateway`) |
+| `AI_MODEL`                   | Override `ai.model`                                       |
+| `GROQ_API_KEY`               | Recommended Groq API key                                  |
+| `AI_GATEWAY_API_KEY`         | AI Gateway API key when `AI_PROVIDER=gateway`             |
 | `CAPTCHA_PROVIDER`           | Override `captcha.provider`                         |
 | `CAPTCHA_API_KEY`            | CAPTCHA provider API key                            |
 | `DASHBOARD_HOST`             | Dashboard bind host                                 |
@@ -175,7 +182,10 @@ This repository includes `railway.json` and a Dockerfile. You can deploy with `c
 | ---------------------------- | ---------------------------------------------------------- |
 | `ACCOUNTS_JSON`              | JSON array of account objects                              |
 | `EMAIL_APP_PASSWORD`         | IMAP app password used by the example account config       |
-| `AI_GATEWAY_API_KEY`         | [Vercel AI Gateway](https://vercel.com/ai-gateway) API key |
+| `AI_PROVIDER`                | AI backend; `groq` is recommended                          |
+| `AI_MODEL`                   | AI model; use a Groq model when `AI_PROVIDER=groq`          |
+| `GROQ_API_KEY`               | Recommended [Groq](https://console.groq.com/keys) API key   |
+| `AI_GATEWAY_API_KEY`         | [Vercel AI Gateway](https://vercel.com/ai-gateway) API key  |
 | `CAPTCHA_API_KEY`            | CAPTCHA provider API key                                   |
 | `DASHBOARD_REQUIRE_PASSWORD` | Set to `true`                                              |
 | `DASHBOARD_PASSWORD`         | Long random dashboard password                             |

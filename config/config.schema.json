@@ -68,6 +68,12 @@
       "additionalProperties": false,
       "required": ["model", "api_key"],
       "properties": {
+        "provider": {
+          "type": "string",
+          "enum": ["gateway", "groq"],
+          "default": "groq",
+          "description": "AI backend. Groq is recommended; gateway uses Vercel AI Gateway."
+        },
         "model": {
           "type": "string",
           "minLength": 1

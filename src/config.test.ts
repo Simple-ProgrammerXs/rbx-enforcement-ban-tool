@@ -32,7 +32,9 @@ async function loadConfigModule(options: {
     DASHBOARD_PORT: process.env.DASHBOARD_PORT,
     DASHBOARD_REQUIRE_PASSWORD: process.env.DASHBOARD_REQUIRE_PASSWORD,
     DISCORD_WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL,
+    AI_PROVIDER: process.env.AI_PROVIDER,
     AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
+    GROQ_API_KEY: process.env.GROQ_API_KEY,
     AI_MODEL: process.env.AI_MODEL,
     CAPTCHA_PROVIDER: process.env.CAPTCHA_PROVIDER,
     CAPTCHA_API_KEY: process.env.CAPTCHA_API_KEY,
@@ -59,7 +61,9 @@ async function loadConfigModule(options: {
   delete process.env.DASHBOARD_PORT;
   delete process.env.DASHBOARD_REQUIRE_PASSWORD;
   delete process.env.DISCORD_WEBHOOK_URL;
+  delete process.env.AI_PROVIDER;
   delete process.env.AI_GATEWAY_API_KEY;
+  delete process.env.GROQ_API_KEY;
   delete process.env.AI_MODEL;
   delete process.env.CAPTCHA_PROVIDER;
   delete process.env.CAPTCHA_API_KEY;
@@ -325,9 +329,94 @@ describe("account email + app password", () => {
       expect(config.loadConfig()).toMatchObject({
         accounts: [{ username: "ExampleUser" }],
         captcha: { provider: "cds", api_key: "captcha-key-value" },
-        ai: { model: "openai/gpt-4o-mini", api_key: "ai-key-value" },
+        ai: { provider: "gateway", model: "openai/gpt-4o-mini", api_key: "ai-key-value" },
         dashboard: { enabled: true, host: "127.0.0.1", port: 8080 },
       });
+    } finally {
+      restore();
+    }
+  });
+
+  test("loads Groq AI config from config and environment", async () => {
+    const { config, restore } = await loadConfigModule({
+      configJson: JSON.stringify({
+        ...VALID_CONFIG,
+        ai: {
+          provider: "groq",
+          model: "openai/gpt-oss-120b",
+          api_key: "env:GROQ_API_KEY",
+        },
+      }),
+    });
+
+    try {
+      process.env.GROQ_API_KEY = "groq-key-value";
+
+      expect(config.loadConfig().ai).toEqual({
+        provider: "groq",
+        model: "openai/gpt-oss-120b",
+        api_key: "groq-key-value",
+      });
+    } finally {
+      restore();
+    }
+  });
+
+  test("uses Groq by default for env-only deployments", async () => {
+    const { config, restore } = await loadConfigModule({});
+
+    try {
+      process.env.ACCOUNTS_JSON = JSON.stringify([VALID_ACCOUNT]);
+      process.env.GROQ_API_KEY = "groq-key-value";
+      process.env.CAPTCHA_API_KEY = "captcha-key-value";
+
+      expect(config.loadConfig()).toMatchObject({
+        accounts: [{ username: "ExampleUser" }],
+        ai: {
+          provider: "groq",
+          model: "openai/gpt-oss-120b",
+          api_key: "groq-key-value",
+        },
+      });
+    } finally {
+      restore();
+    }
+  });
+
+  test("infers Groq for the recommended gpt-oss model", async () => {
+    const { config, restore } = await loadConfigModule({
+      configJson: JSON.stringify({
+        ...VALID_CONFIG,
+        ai: {
+          model: "openai/gpt-oss-120b",
+          api_key: "env:GROQ_API_KEY",
+        },
+      }),
+    });
+
+    try {
+      process.env.GROQ_API_KEY = "groq-key-value";
+
+      expect(config.loadConfig().ai).toEqual({
+        provider: "groq",
+        model: "openai/gpt-oss-120b",
+        api_key: "groq-key-value",
+      });
+    } finally {
+      restore();
+    }
+  });
+
+  test("rejects unknown AI providers", async () => {
+    const { config, restore } = await loadConfigModule({
+      configJson: JSON.stringify({
+        ...VALID_CONFIG,
+        ai: { provider: "unknown", model: "test-model", api_key: "ai-key-value" },
+      }),
+    });
+
+    try {
+      expect(() => config.loadConfig()).toThrow(/ai\.provider/);
     } finally {
       restore();
     }

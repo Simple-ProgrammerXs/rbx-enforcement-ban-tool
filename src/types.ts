@@ -8,7 +8,11 @@ export interface AccountConfig {
   imap_port?: number;
 }
 
+export type AiProvider = "gateway" | "groq";
+
 export interface AiConfig {
+  /** AI backend. `gateway` preserves the existing Vercel AI Gateway behavior. */
+  provider: AiProvider;
   model: string;
   api_key: string;
 }

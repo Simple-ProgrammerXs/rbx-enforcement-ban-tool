@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import type {
   AccountConfig,
   AiConfig,
+  AiProvider,
   AppConfig,
   CaptchaConfig,
   CaptchaProvider,
@@ -53,7 +54,9 @@ const LEGACY_PROXIES_PATHS = [
 ];
 const FALLBACK_DASHBOARD_HOST = "127.0.0.1";
 const FALLBACK_DASHBOARD_PORT = 3000;
-const DEFAULT_AI_MODEL = "openai/gpt-4o-mini";
+const DEFAULT_AI_PROVIDER: AiProvider = "groq";
+const DEFAULT_GATEWAY_MODEL = "openai/gpt-4o-mini";
+const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
 
 export const CONFIG_PATH = process.env.CONFIG_PATH
   ? resolve(process.env.CONFIG_PATH)
@@ -97,7 +100,9 @@ const CAPTCHA_PROVIDERS = new Set<CaptchaProvider>(["2captcha", "cds", "cds-solv
 
 const CAPTCHA_CONFIG_KEYS = new Set(["provider", "api_key"]);
 
-const AI_CONFIG_KEYS = new Set(["model", "api_key"]);
+const AI_PROVIDERS = new Set<AiProvider>(["gateway", "groq"]);
+
+const AI_CONFIG_KEYS = new Set(["provider", "model", "api_key"]);
 
 const ACCOUNT_CONFIG_KEYS = new Set([
   "username",
@@ -235,9 +240,8 @@ function loadRawConfig(): Partial<AppConfig> {
         api_key: "env:CAPTCHA_API_KEY",
       },
       ai: {
-        model: DEFAULT_AI_MODEL,
-        api_key: "env:AI_GATEWAY_API_KEY",
-      },
+        api_key: "env:GROQ_API_KEY",
+      } as Partial<AiConfig> as AiConfig,
       dashboard: {
         enabled: true,
         require_password: false,
@@ -362,6 +366,7 @@ export function loadTestConfig(): AppConfig {
       api_key: "test-captcha-key",
     },
     ai: {
+      provider: DEFAULT_AI_PROVIDER,
       model: "test-model",
       api_key: "test-ai-key",
     },
@@ -491,6 +496,14 @@ function validateAiConfig(ai: Partial<AiConfig> | undefined): asserts ai is AiCo
 
   assertKnownKeys(ai as Record<string, unknown>, AI_CONFIG_KEYS, "ai");
 
+  if (!isNonEmptyString(ai.provider)) {
+    throw new Error(`"ai.provider" is required in ${CONFIG_PATH}`);
+  }
+
+  if (!AI_PROVIDERS.has(ai.provider as AiProvider)) {
+    throw new Error(`"ai.provider" must be one of: ${Array.from(AI_PROVIDERS).join(", ")}`);
+  }
+
   if (!isNonEmptyString(ai.model)) {
     throw new Error(`"ai.model" is required in ${CONFIG_PATH}`);
   }
@@ -544,6 +557,30 @@ function parseAccountsFromEnv(): AccountConfig[] | undefined {
   return parsed as AccountConfig[];
 }
 
+function defaultAiModelForProvider(provider: AiProvider): string {
+  return provider === "groq" ? DEFAULT_GROQ_MODEL : DEFAULT_GATEWAY_MODEL;
+}
+
+function inferAiProvider(ai: Partial<AiConfig>): AiProvider {
+  if (envValue("AI_GATEWAY_API_KEY") && !envValue("GROQ_API_KEY")) {
+    return "gateway";
+  }
+
+  if (isNonEmptyString(ai.api_key) && ai.api_key.includes("AI_GATEWAY_API_KEY")) {
+    return "gateway";
+  }
+
+  if (isNonEmptyString(ai.api_key) && ai.api_key.includes("GROQ_API_KEY")) {
+    return "groq";
+  }
+
+  if (isNonEmptyString(ai.model) && ai.model.startsWith("openai/")) {
+    return ai.model.startsWith("openai/gpt-oss-") ? "groq" : "gateway";
+  }
+
+  return DEFAULT_AI_PROVIDER;
+}
+
 export function loadConfig(): AppConfig {
   const parsed = loadRawConfig();
   assertKnownKeys(parsed as Record<string, unknown>, APP_CONFIG_KEYS, "config");
@@ -558,8 +595,24 @@ export function loadConfig(): AppConfig {
     (envValue("CAPTCHA_PROVIDER") as CaptchaProvider | undefined) ?? parsed.captcha.provider;
   parsed.captcha.api_key = envValue("CAPTCHA_API_KEY") ?? parsed.captcha.api_key;
   parsed.ai ??= {} as Partial<AiConfig> as AiConfig;
-  parsed.ai.model = envValue("AI_MODEL") ?? parsed.ai.model ?? DEFAULT_AI_MODEL;
-  parsed.ai.api_key = envValue("AI_GATEWAY_API_KEY") ?? parsed.ai.api_key;
+  const configuredAiProvider = parsed.ai.provider ?? inferAiProvider(parsed.ai);
+  const configuredAiModel = parsed.ai.model;
+  const aiProviderEnv = envValue("AI_PROVIDER") as AiProvider | undefined;
+  const aiModelEnv = envValue("AI_MODEL");
+  parsed.ai.provider = aiProviderEnv ?? configuredAiProvider;
+  const configuredDefaultModel = defaultAiModelForProvider(configuredAiProvider);
+  const providerDefaultModel = defaultAiModelForProvider(parsed.ai.provider);
+  const resetProviderDefaultModel =
+    aiProviderEnv !== undefined &&
+    aiProviderEnv !== configuredAiProvider &&
+    configuredAiModel === configuredDefaultModel;
+  parsed.ai.model =
+    aiModelEnv ??
+    (resetProviderDefaultModel ? providerDefaultModel : configuredAiModel) ??
+    providerDefaultModel;
+  parsed.ai.api_key =
+    (parsed.ai.provider === "groq" ? envValue("GROQ_API_KEY") : envValue("AI_GATEWAY_API_KEY")) ??
+    parsed.ai.api_key;
 
   if (parsed.dashboard) {
     assertKnownKeys(

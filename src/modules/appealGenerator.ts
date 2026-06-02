@@ -24,9 +24,22 @@ Write it naturally like a real person would. Keep it SHORT.
 
 ONLY output the appeal message. No quotes, no extra text.`;
 
+interface GroqChatCompletion {
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
+}
+
 export class AppealGenerator {
   constructor(private readonly config: AiConfig) {
-    process.env.AI_GATEWAY_API_KEY = config.api_key;
+    if (config.provider === "gateway") {
+      process.env.AI_GATEWAY_API_KEY = config.api_key;
+    }
   }
 
   async generateAppeal(username: string, maxRetries = 2): Promise<string | null> {
@@ -34,16 +47,7 @@ export class AppealGenerator {
 
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
       try {
-        const { text } = await generateText({
-          model: gateway(this.config.model),
-          system: SYSTEM_PROMPT,
-          prompt: userPrompt,
-          temperature: 1,
-          maxOutputTokens: 300,
-          topP: 0.95,
-        });
-
-        const raw = text.trim();
+        const raw = (await this.generateRawAppeal(userPrompt)).trim();
         const appeal = this.cleanAppeal(raw);
 
         if (appeal && this.validateAppeal(appeal, username)) {
@@ -68,6 +72,57 @@ export class AppealGenerator {
 
     Logger.error("Generated appeal failed validation after retries");
     return null;
+  }
+
+  private async generateRawAppeal(userPrompt: string): Promise<string> {
+    if (this.config.provider === "groq") {
+      return this.generateGroqAppeal(userPrompt);
+    }
+
+    const { text } = await generateText({
+      model: gateway(this.config.model),
+      system: SYSTEM_PROMPT,
+      prompt: userPrompt,
+      temperature: 1,
+      maxOutputTokens: 300,
+      topP: 0.95,
+    });
+
+    return text;
+  }
+
+  private async generateGroqAppeal(userPrompt: string): Promise<string> {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.config.api_key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: this.config.model,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 1,
+        max_completion_tokens: 300,
+        top_p: 0.95,
+        stream: false,
+      }),
+    });
+
+    const body = (await response.json().catch(() => undefined)) as GroqChatCompletion | undefined;
+    if (!response.ok) {
+      const message = body?.error?.message ?? response.statusText;
+      throw new Error(`Groq API request failed (${response.status}): ${message}`);
+    }
+
+    const text = body?.choices?.[0]?.message?.content;
+    if (typeof text !== "string" || text.trim().length === 0) {
+      throw new Error("Groq API returned an empty completion");
+    }
+
+    return text;
   }
 
   private cleanAppeal(value?: string | null): string | null {
