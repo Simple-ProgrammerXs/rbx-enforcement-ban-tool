@@ -22,7 +22,7 @@ This project is not affiliated with, endorsed by, or sponsored by Roblox Corpora
 - Local TanStack Start dashboard with React, Vite, and Tailwind CSS
 - IMAP response monitoring for Gmail and Outlook inboxes
 - SQLite appeal history using Bun's `bun:sqlite`
-- AI-assisted appeal draft generation through [Groq](https://console.groq.com/docs/text-chat), with [Vercel AI Gateway](https://vercel.com/ai-gateway) still supported
+- AI-assisted appeal draft generation through [Groq](https://console.groq.com/docs/text-chat) or [Vercel AI Gateway](https://vercel.com/ai-gateway)
 - Discord webhook support
 - Config via JSON files or environment variables
 - TypeScript, ESLint, Prettier, Bun tests, and CI
@@ -119,24 +119,24 @@ The schema in `config/config.schema.json` is the source of truth for supported k
 
 Useful environment overrides:
 
-| Variable                     | Purpose                                             |
-| ---------------------------- | --------------------------------------------------- |
-| `CONFIG_PATH`                | Use a config file outside `config/config.json`      |
-| `CONFIG_JSON`                | Use an inline JSON config object                    |
-| `ACCOUNTS_JSON`              | Replace `accounts` with a JSON array                |
+| Variable                     | Purpose                                                   |
+| ---------------------------- | --------------------------------------------------------- |
+| `CONFIG_PATH`                | Use a config file outside `config/config.json`            |
+| `CONFIG_JSON`                | Use an inline JSON config object                          |
+| `ACCOUNTS_JSON`              | Replace `accounts` with a JSON array                      |
 | `AI_PROVIDER`                | Override `ai.provider` (`groq` recommended, or `gateway`) |
 | `AI_MODEL`                   | Override `ai.model`                                       |
 | `GROQ_API_KEY`               | Recommended Groq API key                                  |
 | `AI_GATEWAY_API_KEY`         | AI Gateway API key when `AI_PROVIDER=gateway`             |
-| `CAPTCHA_PROVIDER`           | Override `captcha.provider`                         |
-| `CAPTCHA_API_KEY`            | CAPTCHA provider API key                            |
-| `DASHBOARD_HOST`             | Dashboard bind host                                 |
-| `DASHBOARD_PORT`             | Dashboard port                                      |
-| `DASHBOARD_REQUIRE_PASSWORD` | Set to `1`, `true`, `yes`, or `on` to require login |
-| `DASHBOARD_PASSWORD`         | Dashboard password                                  |
-| `DISCORD_WEBHOOK_URL`        | Optional Discord webhook                            |
-| `DATA_DIR`                   | Directory for `appeals.sqlite`                      |
-| `TEST_MODE`                  | Run with sample data and no external service calls  |
+| `CAPTCHA_PROVIDER`           | Override `captcha.provider`                               |
+| `CAPTCHA_API_KEY`            | CAPTCHA provider API key                                  |
+| `DASHBOARD_HOST`             | Dashboard bind host                                       |
+| `DASHBOARD_PORT`             | Dashboard port                                            |
+| `DASHBOARD_REQUIRE_PASSWORD` | Set to `1`, `true`, `yes`, or `on` to require login       |
+| `DASHBOARD_PASSWORD`         | Dashboard password                                        |
+| `DISCORD_WEBHOOK_URL`        | Optional Discord webhook                                  |
+| `DATA_DIR`                   | Directory for `appeals.sqlite`                            |
+| `TEST_MODE`                  | Run with sample data and no external service calls        |
 
 ## Proxies
 
@@ -183,9 +183,9 @@ This repository includes `railway.json` and a Dockerfile. You can deploy with `c
 | `ACCOUNTS_JSON`              | JSON array of account objects                              |
 | `EMAIL_APP_PASSWORD`         | IMAP app password used by the example account config       |
 | `AI_PROVIDER`                | AI backend; `groq` is recommended                          |
-| `AI_MODEL`                   | AI model; use a Groq model when `AI_PROVIDER=groq`          |
-| `GROQ_API_KEY`               | Recommended [Groq](https://console.groq.com/keys) API key   |
-| `AI_GATEWAY_API_KEY`         | [Vercel AI Gateway](https://vercel.com/ai-gateway) API key  |
+| `AI_MODEL`                   | AI model; use a Groq model when `AI_PROVIDER=groq`         |
+| `GROQ_API_KEY`               | Recommended [Groq](https://console.groq.com/keys) API key  |
+| `AI_GATEWAY_API_KEY`         | [Vercel AI Gateway](https://vercel.com/ai-gateway) API key |
 | `CAPTCHA_API_KEY`            | CAPTCHA provider API key                                   |
 | `DASHBOARD_REQUIRE_PASSWORD` | Set to `true`                                              |
 | `DASHBOARD_PASSWORD`         | Long random dashboard password                             |
