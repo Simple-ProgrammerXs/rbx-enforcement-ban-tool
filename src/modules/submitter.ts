@@ -109,9 +109,6 @@ function makeFetcher(proxy?: string): { fetch: ProxyFetch; dispatcher?: ProxyDis
   return { fetch: fetcher, dispatcher };
 }
 
-// Release a proxy dispatcher's connection pool. Without this, every submission
-// attempt would leak an undici Agent/ProxyAgent (and its sockets), exhausting
-// file descriptors/memory over a long-running session.
 async function closeDispatcher(dispatcher?: ProxyDispatcher): Promise<void> {
   if (!dispatcher) {
     return;
@@ -383,10 +380,11 @@ function parseChallengeHeaders(response: Response): ChallengeHeaders | null {
  * Handles an email-OTP challenge from Roblox.
  *
  * Flow:
- *  1. Roblox returns 403 with rblx-challenge-type: "email_otp" after the captcha continue step.
+ *  1. Roblox returns 403 with rblx-challenge-type: "email_otp" on the support
+ *     form POST (either the initial POST or the post-captcha re-POST).
  *  2. We wait for the OTP code to arrive in the account inbox (up to 60 s).
- *  3. We POST the code to the challenge/continue endpoint.
- *  4. We re-submit the support form with the new challenge metadata.
+ *  3. We POST only the known OTP fields to the challenge/continue endpoint.
+ *  4. We re-submit the support form with the updated challenge metadata.
  */
 async function handleOtpChallenge(
   account: AccountConfig,
@@ -406,13 +404,16 @@ async function handleOtpChallenge(
 
   Logger.info(`${account.username}: OTP code received, submitting`);
 
-  // Decode the challenge metadata to get the sessionId or any required field
+  // Bug #5 fix: decode metadata only to extract sessionId; do NOT spread all
+  // fields.  Roblox's OTP continue endpoint only expects sessionId, code, and
+  // actionType — captcha-specific fields like unifiedCaptchaId must be omitted.
   const rawMeta = JSON.parse(
     Buffer.from(challengeHeaders.challengeMetadataB64, "base64").toString("utf8"),
   ) as Record<string, unknown>;
 
   const otpContinueMetadata = JSON.stringify({
-    ...rawMeta,
+    // Only pass the fields the OTP continue endpoint expects.
+    ...(typeof rawMeta["sessionId"] !== "undefined" ? { sessionId: rawMeta["sessionId"] } : {}),
     code: otpCode,
     actionType: "SupportRequest",
   });
@@ -648,8 +649,46 @@ export async function submitAppeal(
         );
       }
 
-      // After captcha continue, Roblox may still challenge with OTP
-      const postCaptchaChallengeHeaders = parseChallengeHeaders(continueResponse);
+      // Bug #2 fix: after captcha continue, fire the support form re-POST
+      // first.  Only that 403 response will carry the OTP challenge headers —
+      // the /continue response never does.
+      const finalMetadataB64 = Buffer.from(continueMetadata).toString("base64");
+      let postCaptchaResponse = await fetcher(SUPPORT_URL, {
+        method: "POST",
+        headers: getChallengeSubmitHeaders(
+          csrfToken,
+          cookies,
+          challengeHeaders.challengeId,
+          challengeHeaders.challengeType,
+          finalMetadataB64,
+          "1",
+        ),
+        body: requestBody,
+      });
+
+      // Refresh CSRF if needed and retry once.
+      if (postCaptchaResponse.status === 403) {
+        const retryCsrf = postCaptchaResponse.headers.get("x-csrf-token");
+        if (retryCsrf && retryCsrf !== csrfToken) {
+          csrfToken = retryCsrf;
+          postCaptchaResponse = await fetcher(SUPPORT_URL, {
+            method: "POST",
+            headers: getChallengeSubmitHeaders(
+              csrfToken,
+              cookies,
+              challengeHeaders.challengeId,
+              challengeHeaders.challengeType,
+              finalMetadataB64,
+              "2",
+            ),
+            body: requestBody,
+          });
+        }
+      }
+
+      // Bug #2 fix: check the support-form re-POST for a secondary OTP
+      // challenge, not the /continue response.
+      const postCaptchaChallengeHeaders = parseChallengeHeaders(postCaptchaResponse);
       if (
         postCaptchaChallengeHeaders &&
         postCaptchaChallengeHeaders.challengeType === "email_otp"
@@ -677,47 +716,15 @@ export async function submitAppeal(
         );
       }
 
-      const finalMetadataB64 = Buffer.from(continueMetadata).toString("base64");
-      let finalResponse = await fetcher(SUPPORT_URL, {
-        method: "POST",
-        headers: getChallengeSubmitHeaders(
-          csrfToken,
-          cookies,
-          challengeHeaders.challengeId,
-          challengeHeaders.challengeType,
-          finalMetadataB64,
-          "1",
-        ),
-        body: requestBody,
-      });
-
-      if (finalResponse.status === 403) {
-        const retryCsrf = finalResponse.headers.get("x-csrf-token");
-        if (retryCsrf && retryCsrf !== csrfToken) {
-          csrfToken = retryCsrf;
-          finalResponse = await fetcher(SUPPORT_URL, {
-            method: "POST",
-            headers: getChallengeSubmitHeaders(
-              csrfToken,
-              cookies,
-              challengeHeaders.challengeId,
-              challengeHeaders.challengeType,
-              finalMetadataB64,
-              "2",
-            ),
-            body: requestBody,
-          });
-        }
-      }
-
-      if (finalResponse.status === 200) {
-        await assertRobloxAccepted(finalResponse);
+      // No secondary OTP — treat postCaptchaResponse as the final response.
+      if (postCaptchaResponse.status === 200) {
+        await assertRobloxAccepted(postCaptchaResponse);
         Logger.success(`${account.username}: Submitted appeal`);
         return { success: true };
       }
 
-      const finalText = await finalResponse.text();
-      throw new Error(`Final submit HTTP ${finalResponse.status}: ${finalText.slice(0, 300)}`);
+      const finalText = await postCaptchaResponse.text();
+      throw new Error(`Final submit HTTP ${postCaptchaResponse.status}: ${finalText.slice(0, 300)}`);
     } catch (error) {
       const messageText = error instanceof Error ? error.message : "Unknown submitter error";
       lastError = messageText;
@@ -726,8 +733,6 @@ export async function submitAppeal(
         await sleep(2000 * 2 ** attempt);
       }
     } finally {
-      // Runs on success-return, throw, and normal completion — every exit path
-      // for this attempt releases the proxy connection pool.
       await closeDispatcher(dispatcher);
     }
   }
