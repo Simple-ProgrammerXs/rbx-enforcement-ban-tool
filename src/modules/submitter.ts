@@ -5,6 +5,7 @@ import { SocksClient } from "socks";
 import type { AccountConfig, CaptchaConfig } from "../types";
 import { solveCaptcha } from "./captcha";
 import { Logger } from "./logger";
+import { fetchOtpCode } from "./otpFetcher";
 
 const SUPPORT_URL = "https://www.roblox.com/support?urlLocale=en_us";
 const CONTINUE_URL = "https://apis.roblox.com/challenge/v1/continue?urlLocale=en_us";
@@ -378,6 +379,116 @@ function parseChallengeHeaders(response: Response): ChallengeHeaders | null {
   };
 }
 
+/**
+ * Handles an email-OTP challenge from Roblox.
+ *
+ * Flow:
+ *  1. Roblox returns 403 with rblx-challenge-type: "email_otp" after the captcha continue step.
+ *  2. We wait for the OTP code to arrive in the account inbox (up to 60 s).
+ *  3. We POST the code to the challenge/continue endpoint.
+ *  4. We re-submit the support form with the new challenge metadata.
+ */
+async function handleOtpChallenge(
+  account: AccountConfig,
+  fetcher: ProxyFetch,
+  csrfToken: string,
+  cookies: string,
+  challengeHeaders: ChallengeHeaders,
+  requestBody: string,
+  otpSentAt: number,
+): Promise<{ response: Response; csrfToken: string }> {
+  Logger.solving(`${account.username}: Waiting for OTP email code`);
+
+  const otpCode = await fetchOtpCode(account, otpSentAt);
+  if (!otpCode) {
+    throw new Error("OTP code not received within 60 seconds");
+  }
+
+  Logger.info(`${account.username}: OTP code received, submitting`);
+
+  // Decode the challenge metadata to get the sessionId or any required field
+  const rawMeta = JSON.parse(
+    Buffer.from(challengeHeaders.challengeMetadataB64, "base64").toString("utf8"),
+  ) as Record<string, unknown>;
+
+  const otpContinueMetadata = JSON.stringify({
+    ...rawMeta,
+    code: otpCode,
+    actionType: "SupportRequest",
+  });
+
+  const otpContinueResponse = await fetcher(CONTINUE_URL, {
+    method: "POST",
+    headers: {
+      accept: "application/json, text/plain, */*",
+      "accept-encoding": "gzip, deflate, br, zstd",
+      "accept-language": "en-US,en;q=0.9",
+      "content-type": "application/json;charset=UTF-8",
+      origin: "https://www.roblox.com",
+      priority: "u=1, i",
+      referer: "https://www.roblox.com/",
+      "sec-ch-ua": SEC_CH_UA,
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-site",
+      "user-agent": CHROME_UA,
+      "x-csrf-token": csrfToken,
+    },
+    body: JSON.stringify({
+      challengeId: challengeHeaders.challengeId,
+      challengeType: challengeHeaders.challengeType,
+      challengeMetadata: otpContinueMetadata,
+    }),
+  });
+
+  let updatedCsrf = otpContinueResponse.headers.get("x-csrf-token") ?? csrfToken;
+
+  if (!otpContinueResponse.ok) {
+    const text = await otpContinueResponse.text();
+    throw new Error(
+      `OTP challenge continue HTTP ${otpContinueResponse.status}: ${text.slice(0, 300)}`,
+    );
+  }
+
+  const otpMetadataB64 = Buffer.from(otpContinueMetadata).toString("base64");
+
+  let finalResponse = await fetcher(SUPPORT_URL, {
+    method: "POST",
+    headers: getChallengeSubmitHeaders(
+      updatedCsrf,
+      cookies,
+      challengeHeaders.challengeId,
+      challengeHeaders.challengeType,
+      otpMetadataB64,
+      "1",
+    ),
+    body: requestBody,
+  });
+
+  if (finalResponse.status === 403) {
+    const retryCsrf = finalResponse.headers.get("x-csrf-token");
+    if (retryCsrf && retryCsrf !== updatedCsrf) {
+      updatedCsrf = retryCsrf;
+      finalResponse = await fetcher(SUPPORT_URL, {
+        method: "POST",
+        headers: getChallengeSubmitHeaders(
+          updatedCsrf,
+          cookies,
+          challengeHeaders.challengeId,
+          challengeHeaders.challengeType,
+          otpMetadataB64,
+          "2",
+        ),
+        body: requestBody,
+      });
+    }
+  }
+
+  return { response: finalResponse, csrfToken: updatedCsrf };
+}
+
 export async function submitAppeal(
   account: AccountConfig,
   message: string,
@@ -446,6 +557,30 @@ export async function submitAppeal(
         throw new Error(`Captcha challenge headers missing: ${text.slice(0, 300)}`);
       }
 
+      // ── OTP-only challenge (no captcha fields) ─────────────────────────────
+      if (challengeHeaders.challengeType === "email_otp") {
+        const otpSentAt = Date.now();
+        const { response: otpFinalResponse } = await handleOtpChallenge(
+          account,
+          fetcher,
+          csrfToken,
+          cookies,
+          challengeHeaders,
+          requestBody,
+          otpSentAt,
+        );
+
+        if (otpFinalResponse.status === 200) {
+          await assertRobloxAccepted(otpFinalResponse);
+          Logger.success(`${account.username}: Submitted appeal (OTP)`);
+          return { success: true };
+        }
+
+        const otpText = await otpFinalResponse.text();
+        throw new Error(`OTP final submit HTTP ${otpFinalResponse.status}: ${otpText.slice(0, 300)}`);
+      }
+
+      // ── Captcha challenge ──────────────────────────────────────────────────
       const challengeMetadata = JSON.parse(
         Buffer.from(challengeHeaders.challengeMetadataB64, "base64").toString("utf8"),
       ) as {
@@ -510,6 +645,35 @@ export async function submitAppeal(
         const text = await continueResponse.text();
         throw new Error(
           `Challenge continue HTTP ${continueResponse.status}: ${text.slice(0, 300)}`,
+        );
+      }
+
+      // After captcha continue, Roblox may still challenge with OTP
+      const postCaptchaChallengeHeaders = parseChallengeHeaders(continueResponse);
+      if (
+        postCaptchaChallengeHeaders &&
+        postCaptchaChallengeHeaders.challengeType === "email_otp"
+      ) {
+        const otpSentAt = Date.now();
+        const { response: otpFinalResponse } = await handleOtpChallenge(
+          account,
+          fetcher,
+          csrfToken,
+          cookies,
+          postCaptchaChallengeHeaders,
+          requestBody,
+          otpSentAt,
+        );
+
+        if (otpFinalResponse.status === 200) {
+          await assertRobloxAccepted(otpFinalResponse);
+          Logger.success(`${account.username}: Submitted appeal (captcha + OTP)`);
+          return { success: true };
+        }
+
+        const otpText = await otpFinalResponse.text();
+        throw new Error(
+          `OTP (post-captcha) final submit HTTP ${otpFinalResponse.status}: ${otpText.slice(0, 300)}`,
         );
       }
 
