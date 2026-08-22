@@ -21,7 +21,7 @@ DASHBOARD_HOST=0.0.0.0 bun run start
 
 The apply script embeds the full patched `submitter.ts` (gzip+base64). It backs up the old file to `submitter.ts.bak-otp`.
 
-## Alternative: pull main (after this commit lands)
+## Alternative: after main has the full file
 
 ```bash
 cd ~/rbx-enforcement-ban-tool
