@@ -11,21 +11,13 @@ Also includes recovery probe when support returns soft "OTP verification require
 
 ## On the VM (recommended)
 
+The self-contained apply script (with full embedded submitter) is provided in the Grok conversation. Copy it to the VM and run:
+
 ```bash
-cd ~/rbx-enforcement-ban-tool   # or wherever the repo is
-curl -fsSL https://raw.githubusercontent.com/Simple-ProgrammerXs/rbx-enforcement-ban-tool/main/patches/apply_otp_submitter.py -o apply_otp_submitter.py
+cd ~/rbx-enforcement-ban-tool
 python3 apply_otp_submitter.py
 bun run build
 DASHBOARD_HOST=0.0.0.0 bun run start
 ```
 
-The apply script embeds the full patched `submitter.ts` (gzip+base64). It backs up the old file to `submitter.ts.bak-otp`.
-
-## Alternative: after main has the full file
-
-```bash
-cd ~/rbx-enforcement-ban-tool
-git pull origin main
-bun run build
-DASHBOARD_HOST=0.0.0.0 bun run start
-```
+It backs up the old file to `submitter.ts.bak-otp`.
